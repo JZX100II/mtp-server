@@ -55,6 +55,8 @@ bool parseDateTime(const char* dateTime, time_t& outSeconds) {
     // mktime(3) ignores the tm_gmtoff field, so you can't let it do the work.
     bool useUTC = (tail[0] == 'Z');
 
+    tzset();
+
     struct tm tm = {};
     tm.tm_sec = second;
     tm.tm_min = minute;

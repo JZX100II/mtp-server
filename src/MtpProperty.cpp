@@ -16,6 +16,7 @@
 
 #define LOG_TAG "MtpProperty"
 
+#include <inttypes.h>
 #include "MtpDataPacket.h"
 #include "MtpDebug.h"
 #include "MtpProperty.h"
@@ -242,6 +243,12 @@ void MtpProperty::setCurrentValue(const uint16_t* string) {
         mCurrentValue.str = NULL;
 }
 
+void MtpProperty::setCurrentValue(MtpDataPacket& packet) {
+    free(mCurrentValue.str);
+    mCurrentValue.str = NULL;
+    readValue(packet, mCurrentValue);
+}
+
 void MtpProperty::setFormRange(int min, int max, int step) {
     mFormFlag = kFormRange;
     switch (mType) {
@@ -358,7 +365,7 @@ void MtpProperty::print() {
         case kFormNone:
             break;
         case kFormRange:
-            buffer = "Range (";
+            buffer = "    Range (";
             print(mMinimumValue, buffer);
             buffer += ", ";
             print(mMaximumValue, buffer);
@@ -368,7 +375,7 @@ void MtpProperty::print() {
             VLOG(2) << buffer.c_str();
             break;
         case kFormEnum:
-            buffer = "Enum { ";
+            buffer = "    Enum { ";
             for (int i = 0; i < mEnumLength; i++) {
                 print(mEnumValues[i], buffer);
                 buffer += " ";
@@ -389,7 +396,7 @@ void MtpProperty::print(MtpPropertyValue& value, MtpString& buffer) {
     std::stringstream ss;
     switch (mType) {
         case MTP_TYPE_INT8:
-            ss << value.u.i8;            
+            ss << value.u.i8;
             break;
         case MTP_TYPE_UINT8:
             ss << value.u.u8;
@@ -412,16 +419,11 @@ void MtpProperty::print(MtpPropertyValue& value, MtpString& buffer) {
         case MTP_TYPE_UINT64:
             ss << value.u.u64;
             break;
-         
         case MTP_TYPE_INT128:
             ss << std::hex << value.u.i128[0] << std::hex << value.u.i128[1] << std::hex << value.u.i128[2] << std::hex << value.u.i128[3];
-            //buffer.appendFormat("%08X%08X%08X%08X", value.u.i128[0], value.u.i128[1],
-            //      value.u.i128[2], value.u.i128[3]);
             break;
         case MTP_TYPE_UINT128:
             ss << std::hex << value.u.u128[0] << std::hex << value.u.u128[1] << std::hex << value.u.u128[2] << std::hex << value.u.u128[3];
-            // buffer.appendFormat("%08X%08X%08X%08X", value.u.u128[0], value.u.u128[1],
-            //        value.u.u128[2], value.u.u128[3]);
             break;
         case MTP_TYPE_STR:
             ss << value.str;
@@ -430,7 +432,7 @@ void MtpProperty::print(MtpPropertyValue& value, MtpString& buffer) {
             LOG(ERROR) << "unsupported type for MtpProperty::print";
             break;
     }
-    
+
     buffer += ss.str();
 }
 
@@ -486,6 +488,7 @@ bool MtpProperty::readValue(MtpDataPacket& packet, MtpPropertyValue& value) {
             LOG(ERROR) << "unknown type "
                        << std::hex << mType << std::dec
                        << " in MtpProperty::readValue";
+            return false;
     }
     return true;
 }
@@ -552,15 +555,14 @@ MtpPropertyValue* MtpProperty::readArrayValues(MtpDataPacket& packet, uint32_t& 
 
     // Fail if resulting array is over 2GB.  This is because the maximum array
     // size may be less than SIZE_MAX on some platforms.
-    if (length == 0 ||
-        length >= INT32_MAX / sizeof(MtpPropertyValue)) {
+    if (length == 0 || length >= INT32_MAX / sizeof(MtpPropertyValue)) {
         length = 0;
         return NULL;
     }
     MtpPropertyValue* result = new MtpPropertyValue[length];
     for (uint32_t i = 0; i < length; i++)
         if (!readValue(packet, result[i])) {
-            delete result;
+            delete [] result;
             return NULL;
         }
     return result;

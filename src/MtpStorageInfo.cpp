@@ -18,6 +18,7 @@
 
 #include <iomanip>
 #include <cstring>
+#include <inttypes.h>
 
 #include "MtpDebug.h"
 #include "MtpDataPacket.h"

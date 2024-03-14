@@ -20,9 +20,9 @@
 #include "MtpPacket.h"
 #include "mtp.h"
 
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include <usbhost/usbhost.h>
 #include <glog/logging.h>
@@ -38,6 +38,7 @@ MtpPacket::MtpPacket(int bufferSize)
     mBuffer = (uint8_t *)malloc(bufferSize);
     if (!mBuffer) {
         LOG(FATAL) << "out of memory!";
+        abort();
     }
 }
 
@@ -58,6 +59,7 @@ void MtpPacket::allocate(size_t length) {
         mBuffer = (uint8_t *)realloc(mBuffer, newLength);
         if (!mBuffer) {
             LOG(FATAL) << "out of memory!";
+            abort();
         }
         mBufferSize = newLength;
     }
@@ -68,7 +70,7 @@ void MtpPacket::dump() {
     char buffer[500];
     char* bufptr = buffer;
 
-    for (int i = 0; i < mPacketSize; i++) {
+    for (size_t i = 0; i < mPacketSize; i++) {
         sprintf(bufptr, "%02X ", mBuffer[i]);
         bufptr += strlen(bufptr);
         if (i % DUMP_BYTES_PER_ROW == (DUMP_BYTES_PER_ROW - 1)) {

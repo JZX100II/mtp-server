@@ -236,7 +236,7 @@ public:
             copy(directory_iterator(p), directory_iterator(), std::back_inserter(v));
             for (std::vector<path>::const_iterator it(v.begin()), it_end(v.end()); it != it_end; ++it)
             {
-                add_removable_storage(it->string().c_str(), it->leaf().c_str());
+                add_removable_storage(it->string().c_str(), it->filename().c_str());
             }
 
             // make sure we can catch any new removable storage that gets added.

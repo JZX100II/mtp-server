@@ -98,8 +98,6 @@ public:
     virtual             ~MtpServer();
 
     MtpStorage*         getStorage(MtpStorageID id);
-    inline bool         hasStorage() { return mStorages.size() > 0; }
-    bool                hasStorage(MtpStorageID id);
     void                addStorage(MtpStorage* storage);
     void                removeStorage(MtpStorage* storage);
 
@@ -109,11 +107,13 @@ public:
     void                sendObjectAdded(MtpObjectHandle handle);
     void                sendObjectRemoved(MtpObjectHandle handle);
     void                sendDevicePropertyChanged(MtpDeviceProperty property);
-    void                sendObjectInfoChanged(MtpObjectHandle handle);
-    void                sendObjectPropChanged(MtpObjectHandle handle,
-                                              MtpObjectProperty prop);
+    void                sendObjectUpdated(MtpObjectHandle handle);
 
 private:
+    MtpStorage*         getStorageLocked(MtpStorageID id);
+    inline bool         hasStorage() { return mStorages.size() > 0; }
+    bool                hasStorage(MtpStorageID id);
+
     void                sendStoreAdded(MtpStorageID id);
     void                sendStoreRemoved(MtpStorageID id);
     void                sendEvent(MtpEventCode code,

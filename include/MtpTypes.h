@@ -18,7 +18,9 @@
 #define _MTP_TYPES_H
 
 #include <cstdint>
+#include <cstring>
 #include <cstdio>
+#include <cstdint>
 
 #include <mutex>
 #include <string>

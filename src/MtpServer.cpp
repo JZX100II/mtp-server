@@ -101,6 +101,7 @@ static const MtpEventCode kSupportedEventCodes[] = {
     MTP_EVENT_STORE_ADDED,
     MTP_EVENT_STORE_REMOVED,
     MTP_EVENT_DEVICE_PROP_CHANGED,
+    MTP_EVENT_OBJECT_PROP_CHANGED,
     MTP_EVENT_OBJECT_INFO_CHANGED,
     MTP_EVENT_OBJECT_PROP_CHANGED,
 };
@@ -144,20 +145,9 @@ void MtpServer::removeStorage(MtpStorage* storage) {
 }
 
 MtpStorage* MtpServer::getStorage(MtpStorageID id) {
-    if (id == 0)
-        return mStorages[0];
-    for (size_t i = 0; i < mStorages.size(); i++) {
-        MtpStorage* storage = mStorages[i];
-        if (storage->getStorageID() == id)
-            return storage;
-    }
-    return NULL;
-}
+    MtpAutolock autoLock(mMutex);
 
-bool MtpServer::hasStorage(MtpStorageID id) {
-    if (id == 0 || id == 0xFFFFFFFF)
-        return mStorages.size() > 0;
-    return (getStorage(id) != NULL);
+    return getStorageLocked(id);
 }
 
 void MtpServer::stop() {
@@ -269,15 +259,26 @@ void MtpServer::sendObjectRemoved(MtpObjectHandle handle) {
     sendEvent(MTP_EVENT_OBJECT_REMOVED, handle, 0, 0);
 }
 
-void MtpServer::sendObjectInfoChanged(MtpObjectHandle handle) {
-    VLOG(1) << "sendObjectInfoChanged " << handle;
-    sendEvent(MTP_EVENT_OBJECT_INFO_CHANGED, handle, 0, 0);
+void MtpServer::sendObjectUpdated(MtpObjectHandle handle) {
+    VLOG(1) << "sendObjectUpdated " << handle;
+    sendEvent(MTP_EVENT_OBJECT_PROP_CHANGED, handle, 0, 0);
 }
 
-void MtpServer::sendObjectPropChanged(MtpObjectHandle handle,
-                                      MtpObjectProperty prop) {
-    VLOG(1) << "sendObjectPropChanged " << handle << " " << prop;
-    sendEvent(MTP_EVENT_OBJECT_PROP_CHANGED, handle, prop, 0);
+MtpStorage* MtpServer::getStorageLocked(MtpStorageID id) {
+    if (id == 0)
+        return mStorages.empty() ? NULL : mStorages[0];
+    for (size_t i = 0; i < mStorages.size(); i++) {
+        MtpStorage* storage = mStorages[i];
+        if (storage->getStorageID() == id)
+            return storage;
+    }
+    return NULL;
+}
+
+bool MtpServer::hasStorage(MtpStorageID id) {
+    if (id == 0 || id == 0xFFFFFFFF)
+        return mStorages.size() > 0;
+    return (getStorageLocked(id) != NULL);
 }
 
 void MtpServer::sendStoreAdded(MtpStorageID id) {
@@ -288,6 +289,11 @@ void MtpServer::sendStoreAdded(MtpStorageID id) {
 void MtpServer::sendStoreRemoved(MtpStorageID id) {
     VLOG(1) << "sendStoreRemoved " << std::hex << id << std::dec;
     sendEvent(MTP_EVENT_STORE_REMOVED, id, 0, 0);
+}
+
+void MtpServer::sendDevicePropertyChanged(MtpDeviceProperty property) {
+    VLOG(1) << "sendDevicePropertyChanged " << MtpDebug::getDevicePropCodeName(property);
+    sendEvent(MTP_EVENT_DEVICE_PROP_CHANGED, property, 0, 0);
 }
 
 void MtpServer::sendEvent(MtpEventCode code,
@@ -336,7 +342,6 @@ void MtpServer::removeEditObject(MtpObjectHandle handle) {
 void MtpServer::commitEdit(ObjectEdit* edit) {
     mDatabase->endSendObject(edit->mPath.c_str(), edit->mHandle, edit->mFormat, true);
 }
-
 
 bool MtpServer::handleRequest() {
     MtpAutolock autoLock(mMutex);
@@ -466,7 +471,6 @@ bool MtpServer::handleRequest() {
 }
 
 MtpResponseCode MtpServer::doGetDeviceInfo() {
-    VLOG(1) <<  __PRETTY_FUNCTION__;
     MtpStringBuffer   string;
     char prop_value[PROP_VALUE_MAX];
 
@@ -567,7 +571,7 @@ MtpResponseCode MtpServer::doGetStorageInfo() {
         return MTP_RESPONSE_INVALID_PARAMETER;
 
     MtpStorageID id = mRequest.getParameter(1);
-    MtpStorage* storage = getStorage(id);
+    MtpStorage* storage = getStorageLocked(id);
     if (!storage)
         return MTP_RESPONSE_INVALID_STORAGE_ID;
 
@@ -700,9 +704,6 @@ MtpResponseCode MtpServer::doSetObjectPropValue() {
             << " " << MtpDebug::getObjectPropCodeName(property);
 
     response = mDatabase->setObjectPropertyValue(handle, property, mData);
-
-    //sendObjectPropChanged(handle, property);
-
     return response;
 }
 
@@ -788,7 +789,8 @@ MtpResponseCode MtpServer::doGetObjectInfo() {
         mData.putUInt32(info.mAssociationDesc);
         mData.putUInt32(info.mSequenceNumber);
         mData.putString(info.mName);
-        mData.putEmptyString();    // date created
+        formatDateTime(info.mDateCreated, date, sizeof(date));
+        mData.putString(date);   // date created
         formatDateTime(info.mDateModified, date, sizeof(date));
         mData.putString(date);   // date modified
         mData.putEmptyString();   // keywords
@@ -920,7 +922,7 @@ MtpResponseCode MtpServer::doSendObjectInfo() {
     if (mRequest.getParameterCount() < 2)
         return MTP_RESPONSE_INVALID_PARAMETER;
     MtpStorageID storageID = mRequest.getParameter(1);
-    MtpStorage* storage = getStorage(storageID);
+    MtpStorage* storage = getStorageLocked(storageID);
     MtpObjectHandle parent = mRequest.getParameter(2);
     if (!storage)
         return MTP_RESPONSE_INVALID_STORAGE_ID;
@@ -955,9 +957,7 @@ MtpResponseCode MtpServer::doSendObjectInfo() {
     if (!mData.getUInt32(temp32)) return MTP_RESPONSE_INVALID_PARAMETER;  // image bit depth
     if (!mData.getUInt32(temp32)) return MTP_RESPONSE_INVALID_PARAMETER;  // parent
     if (!mData.getUInt16(temp16)) return MTP_RESPONSE_INVALID_PARAMETER;
-    uint16_t associationType = temp16;
     if (!mData.getUInt32(temp32)) return MTP_RESPONSE_INVALID_PARAMETER;
-    uint32_t associationDesc = temp32;        // association desc
     if (!mData.getUInt32(temp32)) return MTP_RESPONSE_INVALID_PARAMETER;  // sequence number
     MtpStringBuffer name, created, modified;
     if (!mData.getString(name)) return MTP_RESPONSE_INVALID_PARAMETER;    // file name
@@ -1138,7 +1138,6 @@ static void deleteRecursive(const char* path) {
         }
         strcpy(fileSpot, name);
 
-        int type = entry->d_type;
         if (entry->d_type == DT_DIR) {
             deleteRecursive(pathbuf);
             rmdir(pathbuf);
@@ -1275,7 +1274,7 @@ MtpResponseCode MtpServer::doSendPartialObject() {
     int initialData = ret - MTP_CONTAINER_HEADER_SIZE;
 
     if (initialData > 0) {
-        ret = write(edit->mFD, mData.getData(), initialData);
+        ret = pwrite(edit->mFD, mData.getData(), initialData, offset);
         offset += initialData;
         length -= initialData;
     }

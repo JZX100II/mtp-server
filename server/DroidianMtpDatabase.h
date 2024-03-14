@@ -38,7 +38,7 @@
 
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
@@ -683,7 +683,7 @@ public:
                     newname = strdup(buffer);
 
                     oldpath /= entry.path;
-                    newpath /= oldpath.branch_path() / "/" / newname;
+                    newpath /= oldpath.parent_path() / "/" / newname;
 
                     boost::filesystem::rename(oldpath, newpath);
 

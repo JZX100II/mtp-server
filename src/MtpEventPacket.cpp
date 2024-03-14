@@ -22,6 +22,9 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <cstring>
+
+#include <glog/logging.h>
 
 #ifdef MTP_DEVICE
 #include <linux/usb/f_mtp.h>
@@ -56,17 +59,26 @@ int MtpEventPacket::write(int fd) {
 #endif
 
 #ifdef MTP_HOST
-int MtpEventPacket::read(struct usb_request *request) {
+int MtpEventPacket::sendRequest(struct usb_request *request) {
     request->buffer = mBuffer;
     request->buffer_length = mBufferSize;
-    int ret = transfer(request);
-     if (ret >= 0)
-        mPacketSize = ret;
-    else
-        mPacketSize = 0;
-    return ret;
+    mPacketSize = 0;
+    if (usb_request_queue(request)) {
+        PLOG(ERROR) << "usb_endpoint_queue failed, errno: " << errno;
+        return -1;
+    }
+    return 0;
+}
+
+int MtpEventPacket::readResponse(struct usb_device *device) {
+    struct usb_request* const req = usb_request_wait(device);
+    if (req) {
+        mPacketSize = req->actual_length;
+        return req->actual_length;
+    } else {
+        return -1;
+    }
 }
 #endif
 
 }  // namespace android
-
