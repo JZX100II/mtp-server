@@ -42,9 +42,7 @@ fi
 
 chown droidian:droidian $CONFIG_FILE
 
-if [ "$METHOD" = "configfs" ]; then
-    rm -rf $GADGETDIR/configs/$CONFIGNAME 2> /dev/null
-fi
+OLD_USBMODE="${USBMODE}"
 
 while true; do
     . $CONFIG_FILE
