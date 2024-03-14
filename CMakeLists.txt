@@ -1,6 +1,5 @@
+cmake_minimum_required(VERSION 3.10)
 project(mtpserver)
-
-cmake_minimum_required(VERSION 2.8)
 
 include(FindPkgConfig)
 include(GNUInstallDirs)
@@ -63,10 +62,9 @@ include_directories(
     ${DBUSCPP_INCLUDE_DIRS}
 )
 
-add_library(
-    mtpserver SHARED
-    ${MTP_SRCS}
-)
+add_library(mtpserver SHARED ${MTP_SRCS})
+
+target_compile_features(mtpserver PUBLIC cxx_std_11)
 
 target_link_libraries(
   mtpserver
@@ -76,11 +74,10 @@ target_link_libraries(
 )
 
 set_target_properties(
-  mtpserver
-
-  PROPERTIES
+  mtpserver PROPERTIES
   VERSION ${MTP_VERSION_MAJOR}.${MTP_VERSION_MINOR}.${MTP_VERSION_PATCH}
   SOVERSION ${MTP_VERSION_MAJOR}
+  PUBLIC_HEADER "${MTP_HEADERS}"
 )
 
 set_target_properties(

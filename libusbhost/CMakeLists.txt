@@ -1,6 +1,5 @@
+cmake_minimum_required(VERSION 3.10)
 project(usbhost)
-
-cmake_minimum_required(VERSION 2.8)
 
 include_directories(include/)
 
