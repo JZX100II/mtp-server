@@ -1,10 +1,10 @@
 [Unit]
 Description=manage state changes between rndis and mtp
 Requires=lxc@android.service
-After=phosh.service
+After=lxc@android.service
 
 [Service]
-ExecStartPre=-chown droidian:droidian /dev/mtp_usb
+ExecStartPre=-chown furios:furios /dev/mtp_usb
 ExecStart=/usr/sbin/mtp-configfs
 
 [Install]
