@@ -28,6 +28,7 @@ static const gchar introspection_xml[] =
   "    <method name='SetUSBMode'>"
   "      <arg type='s' name='mode' direction='in'/>"
   "    </method>"
+  "    <property name='CurrentState' type='s' access='read'/>"
   "  </interface>"
   "</node>";
 
@@ -135,7 +136,7 @@ configure_rndis ()
 
   mkdir (GADGETDIR "/configs/" CONFIGNAME, 0755);
   mkdir (GADGETDIR "/configs/" CONFIGNAME "/strings/0x409", 0755);
-  write_to_file (GADGETDIR "/configs/" CONFIGNAME "/strings/0x409/configuration", "RNDIS");
+  write_to_file (GADGETDIR "/configs/" CONFIGNAME "/strings/0x409/configuration", "rndis");
 
   symlink (GADGETDIR "/functions/" RNDISCONFIG, GADGETDIR "/configs/" CONFIGNAME "/" RNDISCONFIG);
 
@@ -162,6 +163,7 @@ configure_none ()
 
   cleanup_configfs ();
 
+  write_to_file (GADGETDIR "/configs/" CONFIGNAME "/strings/0x409/configuration", "none");
   write_to_file (GADGETDIR "/UDC", "");
 }
 
@@ -185,11 +187,60 @@ handle_method_call (GDBusConnection *connection, const gchar *sender, const gcha
   g_dbus_method_invocation_return_value (invocation, NULL);
 }
 
+static gchar *
+read_current_state ()
+{
+  char path[256];
+  snprintf (path, sizeof(path), "%s/configs/%s/strings/0x409/configuration", GADGETDIR, CONFIGNAME);
+
+  FILE *file = fopen (path, "r");
+  if (!file) {
+    perror ("fopen");
+    return g_strdup ("none");
+  }
+
+  char buffer[256];
+  if (!fgets (buffer, sizeof (buffer), file)) {
+    perror ("fgets");
+    fclose (file);
+    return g_strdup ("none");
+  }
+
+  fclose (file);
+  buffer[strcspn (buffer, "\n")] = '\0';
+  return g_strdup (buffer);
+}
+
+static GVariant *
+handle_get_property (GDBusConnection *connection,
+                     const gchar *sender,
+                     const gchar *object_path,
+                     const gchar *interface_name,
+                     const gchar *property_name,
+                     GError **error,
+                     gpointer user_data)
+{
+  if (g_strcmp0 (property_name, "CurrentState") == 0) {
+    gchar *state = read_current_state ();
+    GVariant *result = g_variant_new_string (state);
+    g_free (state);
+    return result;
+  }
+
+  g_set_error (error,
+               G_IO_ERROR,
+               G_IO_ERROR_INVALID_ARGUMENT,
+               "Property %s is not supported",
+               property_name);
+  return NULL;
+}
+
 static const
 GDBusInterfaceVTable interface_vtable = {
-  handle_method_call,
-  NULL,
-  NULL};
+  .method_call = handle_method_call,
+  .get_property = handle_get_property,
+  .set_property = NULL
+};
 
 static void
 on_bus_acquired (GDBusConnection *connection,
