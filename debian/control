@@ -12,6 +12,8 @@ Build-Depends: debhelper,
                libandroid-properties-dev,
                libgoogle-glog-dev,
                libproperties-cpp-dev,
+               libandroid-properties-dev,
+               libglib2.0-dev,
 Standards-Version: 4.5.0
 Homepage: http://launchpad.net/mtp
 Vcs-Bzr: https://github.com/droidian/mtp-server
