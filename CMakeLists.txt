@@ -94,3 +94,4 @@ install(
 
 add_subdirectory(libusbhost)
 add_subdirectory(server)
+add_subdirectory(mtp-configfs)
