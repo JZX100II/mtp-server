@@ -21,5 +21,5 @@ target_link_libraries(mtp-configfs
 
 install(
   TARGETS mtp-configfs
-  RUNTIME DESTINATION bin
+  RUNTIME DESTINATION sbin
 )
