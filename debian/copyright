@@ -6,6 +6,10 @@ Files: debian/* tests/* server/*
 Copyright: 2013 Canonical Ltd.
 License: GPL-3
 
+Files: mtp-configfs/*
+Copyright: 2024 Bardia Moshiri <bardia@furilabs.com>
+License: GPL-3
+
 Files: *
 Copyright: 2010 The Android Open Source Project
 License: Apache-2.0

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0
+// Copyright (C) 2024 Bardia Moshiri <fakeshell@bardia.tech>
+
 #include <gio/gio.h>
 #include <stdio.h>
 #include <stdlib.h>
