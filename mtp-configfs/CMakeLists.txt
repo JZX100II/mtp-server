@@ -10,7 +10,7 @@ include_directories(
   ${LIBANDROID_PROPERTIES_INCLUDE_DIRS}
 )
 
-set(SOURCES usb-config.c)
+set(SOURCES usb-config.c isodrive.c utils.c)
 
 add_executable(mtp-configfs ${SOURCES})
 
