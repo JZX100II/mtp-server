@@ -1,29 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0
 // Copyright (C) 2024 Bardia Moshiri <fakeshell@bardia.tech>
 
-#include <gio/gio.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <stdbool.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mount.h>
 #include <grp.h>
-#include <hybris/properties/properties.h>
-
-#define CONFIGFS "/sys/kernel/config"
-#define CONFIGDIR CONFIGFS "/usb_gadget"
-#define GADGETDIR CONFIGDIR "/g1"
-#define CONFIGNAME "c.1"
-#define RNDISCONFIG "rndis.usb0"
-#define MTPCONFIG "mtp.gs0"
-
-#define IDVENDOR "0x2717"
-#define IDPRODUCT "0xFF20"
-#define BCDDEVICE "0x0223"
-#define BCDUSB "0x0200"
+#include "isodrive.h"
+#include "utils.h"
 
 static const gchar introspection_xml[] =
   "<node>"
@@ -31,26 +18,19 @@ static const gchar introspection_xml[] =
   "    <method name='SetUSBMode'>"
   "      <arg type='s' name='mode' direction='in'/>"
   "    </method>"
+  "    <method name='MountFile'>"
+  "      <arg type='s' name='path' direction='in'/>"
+  "      <arg type='b' name='cdrom' direction='in'/>"
+  "      <arg type='b' name='readonly' direction='in'/>"
+  "      <arg type='b' name='force_configfs' direction='in'/>"
+  "      <arg type='b' name='force_usbgadget' direction='in'/>"
+  "    </method>"
+  "    <method name='UnmountFile'>"
+  "    </method>"
   "    <property name='CurrentState' type='s' access='read'/>"
+  "    <property name='MountedFile' type='s' access='read'/>"
   "  </interface>"
   "</node>";
-
-static void
-write_to_file (const char *path,
-               const char *value)
-{
-  g_print ("Attempting to write to %s: %s\n", path, value);
-  int fd = open (path, O_WRONLY);
-  if (fd == -1) {
-    perror ("open");
-    return;
-  }
-
-  if (write (fd, value, strlen (value)) == -1)
-    perror ("write");
-
-  close (fd);
-}
 
 static void
 cleanup_configfs ()
@@ -171,20 +151,38 @@ configure_none ()
 }
 
 static void
-handle_method_call (GDBusConnection *connection, const gchar *sender, const gchar *object_path,
-                    const gchar *interface_name, const gchar *method_name, GVariant *parameters,
-                    GDBusMethodInvocation *invocation, gpointer user_data)
+handle_method_call (GDBusConnection *connection,
+                    const gchar *sender,
+                    const gchar *object_path,
+                    const gchar *interface_name,
+                    const gchar *method_name,
+                    GVariant *parameters,
+                    GDBusMethodInvocation *invocation,
+                    gpointer user_data)
 {
-  gchar *mode;
-  g_variant_get (parameters, "(&s)", &mode);
-
   if (g_strcmp0 (method_name, "SetUSBMode") == 0) {
+    gchar *mode;
+    g_variant_get (parameters, "(&s)", &mode);
+
     if (g_strcmp0 (mode, "mtp") == 0)
       configure_mtp ();
     else if (g_strcmp0 (mode, "rndis") == 0)
-      configure_rndis();
+      configure_rndis ();
     else if (g_strcmp0 (mode, "none") == 0)
       configure_none ();
+  } else if (g_strcmp0 (method_name, "MountFile") == 0) {
+    gchar *path;
+    gboolean cdrom, readonly, force_configfs, force_usbgadget;
+    g_variant_get (parameters, "(&sbbbb)",
+                   &path,
+                   &cdrom,
+                   &readonly,
+                   &force_configfs,
+                   &force_usbgadget);
+
+    mount_iso_file (path, cdrom, readonly, force_configfs, force_usbgadget);
+  } else if (g_strcmp0 (method_name, "UnmountFile") == 0) {
+    unmount_iso_file ();
   }
 
   g_dbus_method_invocation_return_value (invocation, NULL);
@@ -227,6 +225,11 @@ handle_get_property (GDBusConnection *connection,
     gchar *state = read_current_state ();
     GVariant *result = g_variant_new_string (state);
     g_free (state);
+    return result;
+  } else if (g_strcmp0 (property_name, "MountedFile") == 0) {
+    gchar *file = read_mounted_file ();
+    GVariant *result = g_variant_new_string (file);
+    g_free (file);
     return result;
   }
 

@@ -5,6 +5,16 @@
     <method name='SetUSBMode'>
       <arg type='s' name='mode' direction='in'/>
     </method>
+    <method name='MountFile'>
+      <arg type='s' name='path' direction='in'/>
+      <arg type='b' name='cdrom' direction='in'/>
+      <arg type='b' name='readonly' direction='in'/>
+      <arg type='b' name='force_configfs' direction='in'/>
+      <arg type='b' name='force_usbgadget' direction='in'/>
+    </method>
+    <method name='UnmountFile'>
+    </method>
     <property name='CurrentState' type='s' access='read'/>
+    <property name='MountedFile' type='s' access='read'/>
   </interface>
 </node>
